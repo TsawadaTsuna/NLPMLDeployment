@@ -30,7 +30,7 @@
                 <br>
                 <h2>Feed the model</h2>
                 <!---Initialize form structure and inputs, set method to "POST"--->
-                <form action = "{{url_for('feed')}}" method = "put" class = "info">
+                <form action = "{{url_for('feed')}}" method = "post" class = "info" enctype="multipart/form-data">
                     <input type="file" id="myFile" name="filename"><span style="color:red"> * </span>
                     <br>
                     <br>
@@ -40,7 +40,7 @@
                 
                 <h2>Predict a review</h2>
                 <!---Initialize form structure and inputs, set method to "POST"--->
-                <form action = "{{url_for('predict')}}" method = "patch" class = "info">
+                <form action = "{{url_for('predict')}}" method = "post" class = "info" >
                     <input type="text" id="name" name="Average Income of Area" placeholder="Average Area Income" required="required"/><span style="color:red"> * </span>
                     <br>
                     <br>
