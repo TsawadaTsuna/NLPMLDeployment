@@ -1,5 +1,6 @@
 #Import main library
-from pyexpat import model
+from logging import exception
+#from pyexpat import model
 import pandas as pd
 import numpy as np
 import pickle
@@ -58,46 +59,78 @@ def predict():
 #Set the model
 @app.route('/csv', methods = ['POST'])
 def feed():
-    print(request.files)
+    #print(request.files)
     uploaded_file = request.files['filename']
+    #print(uploaded_file.filename)
     if uploaded_file.filename != '':
         try:
+            #print("Trying")
             file_path = os.path.join(app.config['UPLOAD_FOLDER'], uploaded_file.filename)
+            #print("Path: ",file_path)
             # set the file path
             uploaded_file.save(file_path)
+            #print("UploadedFile:", uploaded_file.filename)
             #redirect(url_for('index'))
-        
-            dfreview = pd.read_csv(uploaded_file.filename)
+            #print("About to read")
+            dfreview = pd.read_csv(file_path)
+            #print("File Read")
+            #data_top = dfreview.head() 
+            # display 
+            print("len: ", len(dfreview.columns))
+            if len(dfreview.columns) != 2:
+                raise Exception('Not the right number of columns')
 
+            review = dfreview.columns[0]
+            sentiment = dfreview.columns[1]
+            print("Columnas guardadas")
+            #for col in dfreview.columns:
+            #    print(col)
+            print("Review: ", review)
+            print("Sentiment: ", sentiment)
+            #sentpos, sentneg = "", ""
+
+            #print(dfreview.value_counts(sentiment))
+            #sentlist = dfreview[sentiment].tolist()
+            #print(sentlist)
+            #print("")
+            sentvals = dfreview[sentiment].unique()
+            print("Sentvals seteados")
+            
+            if len(sentvals) != 2:
+                raise Exception('Not the right number of sentiments')
+
+            sentpos = sentvals[0]
+            sentneg = sentvals[1]
             #slices o particiones para crear un set desbalanceado
-            dfpositivos = dfreview[dfreview['sentiment']=='positive'][:9000]
-            dfnegativos = dfreview[dfreview['sentiment']=='negative'][:1000]
+            dfpositivos = dfreview[dfreview[sentiment]==sentpos][:9000]
+            dfnegativos = dfreview[dfreview[sentiment]==sentneg][:1000]
+            print("Los negas: ",dfnegativos)
             dfreviewdes = pd.concat([dfpositivos,dfnegativos])
 
             #Se hace un undersampling para balancear el dataset partido
             rus = RandomUnderSampler()
-            dfreviewbal, dfreviewbal['sentiment'] = rus.fit_resample(dfreviewdes[['review']],dfreviewdes['sentiment'])
+            dfreviewbal, dfreviewbal[sentiment] = rus.fit_resample(dfreviewdes[[review]],dfreviewdes[sentiment])
 
             #se divide en un conjunto de entrenamiento y otro de prueba
             train, test=train_test_split(dfreviewbal, test_size=0.33, random_state=42)
 
             #Se llenan los conjuntos de entrenamiento y prueba en valor(review) y output(sentiment)
-            trainX, trainY=train['review'], train['sentiment']
-            testX, testY=test['review'], test['sentiment']
-
+            trainX, trainY=train[review], train[sentiment]
+            testX, testY=test[review], test[sentiment]
+            """    
             #ejemplo de manejo de texto a representacion numerica
             text = ["I love writing code in Python. I love Python code",
                     "I hate writing code in Java. I hate Java code"]
             #Ejemplo para crear una matriz de conteo de frecuencias
-            df = pd.DataFrame({'review': ['review1', 'review2'], 'text':text})
+            df = pd.DataFrame({review: ['review1', 'review2'], 'text':text})
             cv = CountVectorizer(stop_words='english')
             cv_matrix = cv.fit_transform(df['text'])
-            df_dtm = pd.DataFrame(cv_matrix.toarray(), index=df['review'].values, columns=cv.get_feature_names_out())
-
+            df_dtm = pd.DataFrame(cv_matrix.toarray(), index=df[review].values, columns=cv.get_feature_names_out())
             #ejemplo para crear una matriz con valores tfidf
             tfidf = TfidfVectorizer(stop_words='english')
             tfidf_matrix = tfidf.fit_transform(df['text'])
-            df_dtm = pd.DataFrame(tfidf_matrix.toarray(), index=df['review'].values, columns=tfidf.get_feature_names_out())
+            df_dtm = pd.DataFrame(tfidf_matrix.toarray(), index=df[review].values, columns=tfidf.get_feature_names_out())
+            """
 
             #creamos y llenamos los conjuntos de valores que vamos a usar para los modelos y creamos nuestra bolsa de palabras en base al conjunto de entrenamiento
             tfidf = TfidfVectorizer(stop_words='english')
@@ -111,14 +144,15 @@ def feed():
             #save model
             pickle.dump(svc, open('model.pkl', 'wb'))
             pickle.dump(tfidf, open('wordvector.mkl','wb'))
-
+            global model
+            global tfidfv
             model = svc
             tfidfv = tfidf
             
             return render_template('index2.html', feed_result = 'The model was feed with: ${}'.format(uploaded_file.filename)) 
         except Exception:
             print(Exception)
-            return render_template('index2.html', feed_result = 'No valid file provided')
+            return render_template('index2.html', feed_result = 'Invalid file provided')
     else:
         return render_template('index2.html', feed_result = 'No valid file provided')
 
